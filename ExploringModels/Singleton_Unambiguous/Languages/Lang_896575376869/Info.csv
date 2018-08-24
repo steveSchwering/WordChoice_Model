@@ -1,0 +1,2 @@
+seed,numTargets,numAmbigTargets,numInterfering,numPhon,lenPhon_Total,lenPhon_Interfering,testReserve
+896575376869,40,0,0,18,3,2,0.1
