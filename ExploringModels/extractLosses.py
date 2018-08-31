@@ -51,8 +51,6 @@ def recordResponse(fileName, response, header,
 			record += ender
 			f.write(record)
 
-
-
 def getLosses(modelType):
 	# Get all models within the type and all of the model .csv files
 	modelDirecs = getChildren(direcs = modelType + "Models/*/", return_files = False)
@@ -63,10 +61,10 @@ def getLosses(modelType):
 	return allLosses
 
 if __name__ == '__main__':
-	modelTypes = getChildren(direcs = None,
+	modelTypes = getChildren(direcs = os.getcwd() + "/ModelTypes/*/",
 						 	 return_files = False)
 	for modelType in modelTypes:
-		filename = os.getcwd() + '/' + modelType.split('/')[-2] + '_AllModels' + '.csv'
+		filename = os.getcwd() + '/LossAnalysis/' + modelType.split('/')[-2] + '_AllModels' + '.csv'
 		print(filename)
 		# Gets all model info
 		modelLog = pandas.read_csv(modelType + 'Models/Model_Log.csv')
@@ -89,6 +87,7 @@ if __name__ == '__main__':
 			 		   'size_layer_phonology',
 			 		   'epoch',
 			 		   'loss']
+		# Outputs this information into a new excel file
 		for model in models:
 			modelRow = modelLog.loc[modelLog['modelName'] == model]
 			modelInfo = {'modelName':model, 
@@ -109,5 +108,3 @@ if __name__ == '__main__':
 				recordResponse(fileName = filename,
 							   response = modelInfo,
 							   header = header)
-
-
