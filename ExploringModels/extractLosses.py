@@ -6,26 +6,36 @@ from helperfunctions_WCM import *
 """
 Get all models within the type and all of the model .csv files and then extracts losses
 """
-def getLosses(modelType):
+def getLosses(modelType,
+			  verbose = False):
 	modelDirecs = getChildren(direcs = modelType + "Models/*/", return_files = False)
 	allLosses = {}
 	for modelDirec in modelDirecs:
 		modelLosses = pandas.read_csv(getChildren(files = modelDirec + "/*", filetype = '.csv', return_direcs = False)[0])
 		allLosses[modelLosses['modelName'].tolist()[0]] = modelLosses['loss'].tolist()
+		if verbose:
+			print("\tRetrieved model: {}".format(modelLosses['modelName']))
 	return allLosses
 
 if __name__ == '__main__':
+	verbose = True
 	modelTypes = getChildren(direcs = os.getcwd() + "/ModelTypes/*/",
 						 	 return_files = False)
 	for modelType in modelTypes:
 		filename = os.getcwd() + '/LossAnalysis/' + modelType.split('/')[-2] + '_AllModels' + '.csv'
-		print(filename)
+		if verbose:
+			print("Starting: {}".format(filename.split('/')[-1]))
 		# Gets all model info
-		modelLog = pandas.read_csv(modelType + 'Models/Model_Log.csv')
+		try:
+			modelLog = pandas.read_csv(modelType + 'Models/Model_Log.csv')
+		except:
+			print("Error retrieving model log of type: {}".format(modelType))
+			print("\tMoving on to new model type")
+			continue
 		# Gets all model names
 		models = modelLog['modelName'].tolist()
 		# Gets all model losses
-		allLosses = getLosses(modelType)
+		allLosses = getLosses(modelType, verbose)
 		# Combines this infomration
 		header = ['modelName', 
 			 		   'modelSeed', 

@@ -16,6 +16,8 @@ levels(d_unambig_loss$num_batches) = c("Batch size 1", "Batch size 3", "Batch si
 # Creating plots
 library("cowplot")
 ### AMBIGUOUS ###
+unique(d_ambig_loss$num_timeSteps)
+unique(d_ambig_loss$num_batches)
 # Looking at time steps of size 1 for ambiguous model
 plotFrame = d_ambig_loss[d_ambig_loss$num_timeSteps == 1,]
 plot_ambig_time1 = ggplot(plotFrame, aes(x = epoch, y = loss, color = num_batches)) + 
@@ -65,6 +67,30 @@ plot_ambig_time6 = ggplot(plotFrame, aes(x = epoch, y = loss, color = num_batche
 plot_ambig_time6
 
 # Looking at time steps of size 7 for ambiguous model
+plotFrame = d_ambig_loss[d_ambig_loss$num_timeSteps == 7,]
+plot_ambig_time7 = ggplot(plotFrame, aes(x = epoch, y = loss, color = num_batches)) + 
+  geom_point() +
+  facet_wrap(~num_batches) +
+  coord_cartesian(ylim = c(0.0, 0.033)) + labs(title = "Model losses")
+plot_ambig_time7
+
+# Looking at time steps of size 8 for ambiguous model
+plotFrame = d_ambig_loss[d_ambig_loss$num_timeSteps == 8,]
+plot_ambig_time8 = ggplot(plotFrame, aes(x = epoch, y = loss, color = num_batches)) + 
+  geom_point() +
+  facet_wrap(~num_batches) +
+  coord_cartesian(ylim = c(0.0, 0.033)) + labs(title = "Model losses")
+plot_ambig_time8
+
+# Looking at time steps of size 9 for ambiguous model
+plotFrame = d_ambig_loss[d_ambig_loss$num_timeSteps == 9,]
+plot_ambig_time9 = ggplot(plotFrame, aes(x = epoch, y = loss, color = num_batches)) + 
+  geom_point() +
+  facet_wrap(~num_batches) +
+  coord_cartesian(ylim = c(0.0, 0.033)) + labs(title = "Model losses")
+plot_ambig_time9
+
+# Looking at time steps of size 10 for ambiguous model
 plotFrame = d_ambig_loss[d_ambig_loss$num_timeSteps == 10,]
 plot_ambig_time10 = ggplot(plotFrame, aes(x = epoch, y = loss, color = num_batches)) + 
   geom_point() +
