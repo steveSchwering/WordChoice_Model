@@ -1,0 +1,2 @@
+These models examine how performance looks when the model is just trained on single words with both ambiguous and unambiguous phonology
+-- This means that each 'message' may have up to 2 ‘words’ associated with it.

@@ -10,26 +10,37 @@ BUG: The command to return X and Y labels is problematic, as the first index and
 are coded in the same way.
 """
 class Trial():
-	def __init__(self, numWords, condition, message, label, phonemes):
+	def __init__(self, numWords, condition, image1, label1, phonemes1, image2, label2, phonemes2):
 		self.numWords = numWords
 		self.condition = condition
-		self.message = message
-		self.label = label
-		self.phonemes = phonemes
+		self.image1 = image1
+		self.label1 = label1
+		self.phonemes1 = phonemes1
+		self.image2 = image2
+		self.label2 = label2
+		self.phonemes2 = phonemes2
 
 	"""
 	Outputs one-hot vectors of model input
 	"""
 	def get_message_np(self):
-		zeros = np.array([0]*(len(self.phonemes)), dtype = np.float32)
-		zeros[0] = int(self.message)
-		return zeros.astype(np.int32)
+		zeros = np.array([0]*(len(self.phonemes1)), dtype = np.float32)
+		if self.image2 == None:
+			zeros[0] = int(self.image1)
+			return zeros.astype(np.int32)
+		else:
+			return out1, out2
 		
 	"""
 	Outputs one-hot vectors of model output
 	"""
 	def get_phonology_np(self):
-		return np.asarray(self.phonemes).astype(np.int32)
+		phonemes1 = [int(_) for _ in self.phonemes1]
+		if self.image2 == None:
+			return np.asarray(self.phonemes1).astype(np.int32)
+		else:
+			phonemes2 = [int(_) for _ in self.phonemes2]
+			return np.asarray(phonemes1).astype(np.int32), np.asarray(phonemes2).astype(np.int32)
 
 """
 This function generates message:word pairings in a dictionary format
@@ -54,7 +65,7 @@ def generateTargetMessages(numTargets, numPhon, lenPhon_Total, numAmbigTargets,
 		print("Generating targets:")
 	# message is the index of the image
 	# isShared is whether the message has more than 1 associated word
-	for message, isShared in zip(range(1,numTargets+1), shared):
+	for message, isShared in zip(range(numTargets), shared):
 		if isShared == 1:
 			while True:
 				word1 = []
@@ -157,40 +168,107 @@ def generateTrials(messages_target, messages_primes, lenPhon_Interfering,
 			phonological_code = [str(_) for _ in phonological_code]
 			label = 'artificial_{}'.format('-'.join(phonological_code))
 			if len(messages_target[message]) > 1:
-				trials_ambiguous.append(Trial(numWords = 1, condition = 'ambiguous', message = message, label = label, phonemes = phonological_code))
+				trials_ambiguous.append(Trial(numWords = 1, condition = 'ambiguous', image1 = message, label1 = label, phonemes1 = phonological_code, image2 = None, label2 = None, phonemes2 = None))
 			else:
-				trials_ambiguous.append(Trial(numWords = 1, condition = 'unambiguous', message = message, label = label, phonemes = phonological_code))
+				trials_ambiguous.append(Trial(numWords = 1, condition = 'unambiguous', image1 = message, label1 = label, phonemes1 = phonological_code, image2 = None, label2 = None, phonemes2 = None))
 	# Separate all of the unambiguous primes
 	if verbose:
 		print("Setting up unambiguous singles")
-	messageNum = len(messages_target.keys())
+	messageNum = len(messages_target.keys()) - 1
 	trials_unambiguous = []
 	for message in messages_primes:
 		for phonological_code in messages_primes[message]:
 			messageNum += 1
 			phonological_code = [str(_) for _ in phonological_code]
 			label = 'artificial_{}'.format('-'.join(phonological_code))
-			trials_unambiguous.append(Trial(numWords = 1, condition = 'unambiguous', message = messageNum, label = label, phonemes = phonological_code))
+			trials_unambiguous.append(Trial(numWords = 1, condition = 'unambiguous', image1 = messageNum, label1 = label, phonemes1 = phonological_code, image2 = None, label2 = None, phonemes2 = None))
+	# Generate all possible pairs of primes and targets
+	trials_interfering = []
+	trials_noninterfering = []
+	if verbose:
+		print("Setting up primes")
+	for message_target in messages_target:
+		for message_prime in messages_primes:
+			for m_t in messages_target[message_target]:
+				m_t = [str(_) for _ in m_t]
+				label2 = 'artificial_{}'.format('-'.join(m_t))
+				for m_p in messages_primes[message_prime]:
+					m_p = [str(_) for _ in m_p]
+					label1 = 'artificial_{}'.format('-'.join(m_p))
+					if m_t[:lenPhon_Interfering] == m_p[:lenPhon_Interfering]:
+						trials_interfering.append(Trial(numWords = 2, condition = 'interfering', image1 = message_prime, label1 = label1, phonemes1 = m_p, image2 = message_target, label2 = label2, phonemes2 = m_t))
+					else:
+						trials_noninterfering.append(Trial(numWords = 2, condition = 'noninterfering', image1 = message_prime, label1 = label1, phonemes1 = m_p, image2 = message_target, label2 = label2, phonemes2 = m_t))
+	random.shuffle(trials_interfering)
+	random.shuffle(trials_noninterfering)
+	# Divide them into testing and training sets
+	# - For interfering items
+	num_interfere_train = int(len(trials_interfering)*(1-testReserve))
+	trials_interfering_train = trials_interfering[:num_interfere_train]
+	trials_interfering_test = trials_interfering[num_interfere_train:]
+	# - For noninterfering items
+	num_noninterfere_train = int(len(trials_noninterfering)*(1-testReserve))
+	trials_noninterfering_train = trials_noninterfering[:num_noninterfere_train]
+	trials_noninterfering_test = trials_noninterfering[num_noninterfere_train:]
 	# Define training and testing trials
 	trials_training_singles = trials_ambiguous + trials_unambiguous
+	trials_training_pairs = trials_noninterfering_train + trials_noninterfering_train
 	if verbose:
 		print("\tDefined training set of singletons: {} trials".format(len(trials_training_singles)))
-	return trials_training_singles
+		print("\tDefined training set of pairs: {} trials".format(len(trials_training_pairs)))
+	trials_testing = trials_noninterfering_test + trials_interfering_test
+	if verbose:
+		print("\tDefined testing set of interfering and noninterfering pairs: {} trials".format(len(trials_testing)))
+	return trials_training_singles, trials_training_pairs, trials_testing
 
 """
 Organizes a language for reading trials into a csv file
 """
-def saveLanguage(singles, langDirTrials, langDirInfo, langInfo,
-				 headerWords = ['numWords', 'train', 'condition', 'message', 'label', 'phonemes'],
+def saveLanguage(singles, pairs, testingPairs, langDirTrials, langDirInfo, langInfo,
+				 headerWords = ['numWords', 'train', 'condition', 'image1', 'label1', 'phonemes1', 'image2', 'label2', 'phonemes2'],
 				 headerInfo = ['seed', 'numTargets', 'numAmbigTargets', 'numInterfering', 'numPhon', 'lenPhon_Total', 'lenPhon_Interfering', 'testReserve']):
 	output = {}
 	for single in singles:
 		output['numWords'] = single.numWords
 		output['condition'] = single.condition
-		output['message'] = single.message
-		output['label'] = single.label
-		output['phonemes'] = '_'.join(single.phonemes)
+		output['image1'] = single.image1
+		output['label1'] = single.label1
+		output['phonemes1'] = '_'.join(single.phonemes1)
+		output['image2'] = single.image2
+		output['label2'] = single.label2
+		if single.phonemes2:
+			output['phonemes2'] = '_'.join(single.phonemes2)
+		else:
+			output['phonemes2'] = None
 		output['train'] = 'train'
+		recordResponse(fileName = langDirTrials, response = output, header = headerWords)
+	for pair in pairs:
+		output['numWords'] = pair.numWords
+		output['condition'] = pair.condition
+		output['image1'] = pair.image1
+		output['label1'] = pair.label1
+		output['phonemes1'] = str('_'.join(pair.phonemes1))
+		output['image2'] = pair.image2
+		output['label2'] = pair.label2
+		if pair.phonemes2:
+			output['phonemes2'] = str('_'.join(pair.phonemes1))
+		else:
+			output['phonemes2'] = None
+		output['train'] = 'train'
+		recordResponse(fileName = langDirTrials, response = output, header = headerWords)
+	for pair in testingPairs:
+		output['numWords'] = pair.numWords
+		output['condition'] = pair.condition
+		output['image1'] = pair.image1
+		output['label1'] = pair.label1
+		output['phonemes1'] = '_'.join(pair.phonemes1)
+		output['image2'] = pair.image2
+		output['label2'] = pair.label2
+		if pair.phonemes2:
+			output['phonemes2'] = str('_'.join(pair.phonemes1))
+		else:
+			output['phonemes2'] = None
+		output['train'] = 'test'
 		recordResponse(fileName = langDirTrials, response = output, header = headerWords)
 	langInfo['lenPhon_Total'] = str('_'.join([str(_) for _ in langInfo['lenPhon_Total']]))
 	recordResponse(fileName = langDirInfo, response = langInfo, header = headerInfo)
@@ -233,6 +311,8 @@ def regenerateFromFile(langDirTrials, langDirInfo, langInfo,
 	allTrials = pandas.read_csv(langDirTrials)
 	allTrials = allTrials.replace({'None':None})
 	trials_training_singles = []
+	trials_training_pairs = []
+	trials_testing = []
 	if verbose:
 		print("Regenerating language from {}".format(langDirTrials))
 	for index, row in allTrials.iterrows():
@@ -240,18 +320,37 @@ def regenerateFromFile(langDirTrials, langDirInfo, langInfo,
 			print("\tRegenerating trial {} -- ".format(index), end = '')
 		numWords = int(row['numWords'])
 		condition = row['condition']
-		message = int(row['message'])
-		label = row['label']
-		phonemes = row['phonemes'].split('_')
+		image1 = int(row['image1'])
+		label1 = row['label1']
+		phonemes1 = row['phonemes1'].split('_')
+		if numWords == 1:
+			image2 = None
+			label2 = None
+			phonemes2 = None
+		elif numWords == 2:
+			image2 = int(row['image2'])
+			label2 = row['label2']
+			phonemes2 = row['phonemes2'].split('_')
 		trial = Trial(numWords = numWords, 
 					  condition = condition, 
-					  message = message, 
-					  label = label, 
-					  phonemes = phonemes)
+					  image1 = image1, 
+					  label1 = label1, 
+					  phonemes1 = phonemes1, 
+					  image2 = image2, 
+					  label2 = label2, 
+					  phonemes2 = phonemes2)
 		if (int(row['numWords']) == 1):
 			trials_training_singles.append(trial)
 			if verbose:
 				print("single {}".format(len(trials_training_singles)))
+		elif ((int(row['numWords']) == 2) & (row['train'] == 'train')):
+			trials_training_pairs.append(trial)
+			if verbose:
+				print("pair for training {}".format(len(trials_training_pairs)))
+		elif ((int(row['numWords']) == 2) & (row['train'] == 'test')):
+			trials_testing.append(trial)
+			if verbose:
+				print("pair for testing {}".format(len(trials_testing)))
 	if verbose:
 		print("Regenerating language information from {}".format(langDirInfo))
 	info = pandas.read_csv(langDirInfo)
@@ -265,7 +364,7 @@ def regenerateFromFile(langDirTrials, langDirInfo, langInfo,
 	if verbose:
 		for key in langInfo:
 			print("\t{} : {}".format(key, langInfo[key]))
-	return trials_training_singles, langInfo
+	return trials_training_singles, trials_training_pairs, trials_testing, langInfo
 
 if __name__ == '__main__':
 	verbose = True
@@ -277,11 +376,11 @@ if __name__ == '__main__':
 	if not os.path.isfile(langDirTrials):
 		if not os.path.exists(pathName):
 			os.makedirs(pathName)
-		langInfo.update({'numTargets' : 40, # Number of messages that CAN have multiple words associated with them
+		langInfo.update({'numTargets' : 10, # Number of messages that CAN have multiple words associated with them
 						 'numPhon' : 18, # Number of phonemes in the language
 						 'lenPhon_Total' : [3], # Possible word lengths
-						 'numAmbigTargets' : 0, # Number of targets that are 'ambiguous' -- the number of messages that DO have multiple words associated with them
-						 'numInterfering' : 0, # Number of target messages that have interfering words associated with them
+						 'numAmbigTargets' : 10, # Number of targets that are 'ambiguous' -- the number of messages that DO have multiple words associated with them
+						 'numInterfering' : 10, # Number of target messages that have interfering words associated with them
 						 'lenPhon_Interfering' : 2, # Length of the phonological interference})
 						 'testReserve' : 0.10})
 		random.seed(langInfo['seed'])
@@ -300,12 +399,12 @@ if __name__ == '__main__':
 		 								 		lenPhon_Interfering = langInfo['lenPhon_Interfering'],
 		 								 		words = words,
 		 								 		verbose = verbose)
-		trials_training_singles = generateTrials(messages_target = messages_target,
-						 						 messages_primes = messages_primes,
-						 						 lenPhon_Interfering = langInfo['lenPhon_Interfering'],
-						 						 testReserve = langInfo['testReserve'],
-						 						 verbose = verbose)
+		trials_training_singles, trials_training_pairs, trials_testing = generateTrials(messages_target = messages_target,
+						 								 								messages_primes = messages_primes,
+						 								 								lenPhon_Interfering = langInfo['lenPhon_Interfering'],
+						 								 								testReserve = langInfo['testReserve'],
+						 								 								verbose = verbose)
 		if save:
-			saveLanguage(singles = trials_training_singles, langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo)
+			saveLanguage(singles = trials_training_singles, pairs = trials_training_pairs, testingPairs = trials_testing, langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo)
 	else:
-		trials_training_singles, langInfo = regenerateFromFile(langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo, verbose = verbose)
+		trials_training_singles, trials_training_pairs, trials_testing, langInfo = regenerateFromFile(langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo, verbose = verbose)

@@ -4,34 +4,29 @@ import glob
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from generateLanguage import *
+import generateLanguage
 
 """
 Generates numpy data that can be input into the model one epoch at a time
 + trials are the list of possible sets of trials that can be shown to the model
-+ numTrials represents the number of trials per epoch
++ num_trials represents the number of trials per epoch
 + size_layer_message is the size of the message layer in the neural network
 + size_layer_phonology is the size of the phonological layer in the network
-NOTE: Our raw data size is given by numTrials*(length of the word phonology for a given trial)
+NOTE: Our raw data size is given by num_trials*(length of the word phonology for a given trial)
 """
-def generateModel_data(trials, numTrials,
+def generateModel_data(trials, num_trials,
 					   verbose = False):
-	"""if verbose:
-		print("Generating trials for model")"""
 	# Start assembling big 'batches' of data from a number of trials
-	for _ in range(numTrials):
+	for _ in range(num_trials):
 		trial = random.choice(trials) # Sampling with replacement
 		# Creates the input and output data numpy arrays
 		if _ == 0:
 			input_data = trial.get_message_np()
 			output_data = trial.get_phonology_np()
-		# And keeps adding to them until we have added numTrials number of trials
+		# And keeps adding to them until we have added num_trials number of trials
 		else:
 			input_data = np.vstack((input_data, trial.get_message_np()))
 			output_data = np.vstack((output_data, trial.get_phonology_np()))
-	"""if verbose:
-		print("\tGenerated {} inputs".format(len(input_data)))
-		print("\tGenerated {} outputs".format(len(output_data)))"""
 	input_data = input_data.flatten()
 	output_data = output_data.flatten()
 	return input_data, output_data
@@ -43,7 +38,6 @@ Takes data from generateModel_data and breaks it into minibatches
 + output_data is output data from previous function
 + num_batches is the number of batches into which we will divide the work
 + num_timeSteps is the number of timesteps back in time that the error is propagated
-NOTE: Realized later that a lot of this can be implemented via the tf.one_hot command
 """
 def generateModel_batch(input_data, output_data, num_batches, num_timeSteps,
 						verbose = False):
@@ -67,12 +61,13 @@ def generateModel_batch(input_data, output_data, num_batches, num_timeSteps,
 """
 Generate data and have it incrementally pass it to model
 """
-def generateModel_epoch(num_epochs, trials, numTrials, num_batches, num_timeSteps, size_layer_x, size_layer_y, verbose):
+def generateModel_epoch(num_epochs, trials, num_trials, num_batches, num_timeSteps, 
+						verbose = False):
 	for i in range(num_epochs):
 		if verbose:
-			print("\tStarting epoch: {}".format(i + 1))
+			print("\tStarting epoch: {}".format(i))
 		input_data, output_data = generateModel_data(trials = trials,
-													 numTrials = numTrials,
+													 num_trials = num_trials,
 													 verbose = verbose)
 		yield generateModel_batch(input_data = input_data,
 								 output_data = output_data, 
@@ -80,61 +75,75 @@ def generateModel_epoch(num_epochs, trials, numTrials, num_batches, num_timeStep
 								 num_timeSteps = num_timeSteps,
 								 verbose = verbose)
 
-def generateModel(learning_rate, num_trials, num_epochs, num_timeSteps, num_batches, size_layer_message, size_layer_phonology, size_layer_hidden, modelSeed,
+def generateModel(modelInfo,
 				  verbose = False):
 	graph = tf.Graph()
 	nodes = {}
-	random.seed(modelSeed)
+	random.seed(modelInfo['modelSeed'])
 	with graph.as_default():
 		# Define nodes
 		with tf.name_scope('Message'):
-			x = tf.placeholder(tf.int32, [num_batches, num_timeSteps], name = 'Message') # Input
+			#x = tf.placeholder(tf.int32, [modelInfo['num_batches'], modelInfo['num_timeSteps']], name = 'Message') # Input
+			#x = tf.placeholder(tf.int32, [None, modelInfo['num_timeSteps']], name = 'Message') # Input
+			x = tf.placeholder(tf.int32, [None, None], name = 'Message') # Input
+			batch_size = tf.shape(x)[0]
+			modelInfo['input'] = x.name
 			nodes['x'] = x
-			rnn_inputs = tf.one_hot(x, size_layer_message, name = 'Message_RNNFeed') # Transformation into what the RNN layers can understand
+			rnn_inputs = tf.one_hot(x, modelInfo['size_layer_message'], name = 'Message_RNNFeed') # Transformation into what the RNN layers can understand
 		with tf.name_scope('RNN_Hidden'):
-			cell = tf.contrib.rnn.BasicRNNCell(size_layer_hidden, name = 'RNN_Cells') # RNN
-			init_state = tf.zeros([num_batches, size_layer_hidden], name = 'RNN_Initial') # Initial state of RNN
-			rnn_outputs, final_state = tf.nn.dynamic_rnn(cell, rnn_inputs, initial_state=init_state)
+			cell = tf.contrib.rnn.BasicRNNCell(modelInfo['size_layer_hidden'], name = 'RNN_Cells') # RNN
+			#init_state = tf.zeros([modelInfo['num_batches'], modelInfo['size_layer_hidden']], name = 'RNN_Initial') # Initial state of RNN
+			max_length = tf.placeholder(tf.int32) # Max length of the RNN unfolding
+			init_state = tf.zeros([batch_size, modelInfo['size_layer_hidden']], name = 'RNN_Initial') # Initial state of RNN
+			rnn_outputs, final_state = tf.nn.dynamic_rnn(cell, rnn_inputs, initial_state = init_state, sequence_length = max_length)
+			modelInfo['hidden_state_init'] = init_state.name
+			modelInfo['hidden_state_curr'] = final_state.name
+			modelInfo['max_length_name'] = max_length.name
 			nodes['init_state'] = init_state
 			nodes['final_state'] = final_state
+			nodes['max_length'] = max_length
 		with tf.name_scope('Phonology'):
 			with tf.variable_scope('Softmax'): # Calculated output
-				W = tf.get_variable('W', [size_layer_hidden, size_layer_phonology])
-				b = tf.get_variable('b', [size_layer_phonology], initializer=tf.constant_initializer(0.0))
-			y = tf.placeholder(tf.int32, [num_batches, num_timeSteps], name = 'Phonology') # What the output should be
+				W = tf.get_variable('W', [modelInfo['size_layer_hidden'], modelInfo['size_layer_phonology']])
+				b = tf.get_variable('b', [modelInfo['size_layer_phonology']], initializer=tf.constant_initializer(0.0))
+			#y = tf.placeholder(tf.int32, [modelInfo['num_batches'], modelInfo['num_timeSteps']], name = 'Phonology') # What the output should be
+			#y = tf.placeholder(tf.int32, [None, modelInfo['num_timeSteps']], name = 'Phonology') # What the output should be
+			y = tf.placeholder(tf.int32, [None, None], name = 'Phonology') # What the output should be
 			nodes['y'] = y
 		# Define edges
 		with tf.name_scope('Outputs'):
-			logits = tf.reshape(tf.matmul(tf.reshape(rnn_outputs, [-1, size_layer_hidden]), W) + b, [num_batches, num_timeSteps, size_layer_phonology], name = 'Logits')
+			#logits = tf.reshape(tf.matmul(tf.reshape(rnn_outputs, [-1, modelInfo['size_layer_hidden']]), W) + b, [modelInfo['num_batches'], modelInfo['num_timeSteps'], modelInfo['size_layer_phonology']], name = 'Logits')
+			#logits = tf.reshape(tf.matmul(tf.reshape(rnn_outputs, [-1, modelInfo['size_layer_hidden']]), W) + b, [batch_size, modelInfo['num_timeSteps'], modelInfo['size_layer_phonology']], name = 'Logits')
+			logits = tf.reshape(tf.matmul(tf.reshape(rnn_outputs, [-1, modelInfo['size_layer_hidden']]), W) + b, [batch_size, max_length, modelInfo['size_layer_phonology']], name = 'Logits')
 			predictions = tf.nn.softmax(logits, name = 'Predictions')
+			modelInfo['predictions'] = predictions.name
 		with tf.name_scope('Errors'):
 			losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits, name = 'Losses')
 			total_loss = tf.reduce_mean(losses, name = 'Total_loss')
-			train_step = tf.train.AdagradOptimizer(learning_rate).minimize(total_loss)
+			train_step = tf.train.AdagradOptimizer(modelInfo['learning_rate']).minimize(total_loss)
 			nodes['losses'] = losses
 			nodes['total_loss'] = total_loss
 			nodes['train_step'] = train_step
-	return graph, nodes
+	return graph, nodes, modelInfo
 
 def saveLosses(modelName, training_losses, saveLossesLocation,
 			   header = ['modelName', 'epoch', 'loss']):
 	for i, loss in enumerate(training_losses):
-		recordResponse(fileName = saveLossesLocation, response = {'modelName':modelName, 'epoch':i, 'loss':loss}, header = header) 
+		generateLanguage.recordResponse(fileName = saveLossesLocation, response = {'modelName':modelName, 'epoch':i, 'loss':loss}, header = header) 
 
 """
 Actually train the model
 """
-def trainNetwork(trainingSeed, graph, nodes, trials_training_singles, num_trials, num_batches, num_timeSteps, num_epochs, size_layer_message, size_layer_phonology, size_layer_hidden,
-				 modelName = None,
+def trainNetwork(modelInfo, graph, nodes, trials_training_singles,
 				 saveGraphLocation = None,
 				 saveVariablesLocation = None,
+				 saveEveryNEpochs = 5,
 				 saveLossesLocation = None,
 				 verbose = True):
-	random.seed(trainingSeed)
 	tf.reset_default_graph()
 	if verbose:
-		if modelName != None:
-			print("**\nBeginning to train model {}\n**".format(modelName))
+		if 'modelName' in modelInfo.keys():
+			print("Beginning to train model {}".format(modelInfo['modelName']))
 	with tf.Session(graph = graph) as sess:
 		sess.run(tf.global_variables_initializer())
 		training_losses = []
@@ -144,35 +153,44 @@ def trainNetwork(trainingSeed, graph, nodes, trials_training_singles, num_trials
 			writer.add_graph(sess.graph)
 			# To view model type: tensorboard --logdir==training:/Users/StevenSchwering/Documents/Psychology/Labs/LCNL/Research/Current/WordChoice_Model/ModelGraphs --host=127.0.0.1
 		if saveVariablesLocation != None:
-			saver = tf.train.Saver()
-		for i, epoch in enumerate(generateModel_epoch(num_epochs = num_epochs, 
+			saved_epochs = range(saveEveryNEpochs, modelInfo['num_epochs']-saveEveryNEpochs+1, saveEveryNEpochs)
+			saver = tf.train.Saver(max_to_keep = len(saved_epochs) + 2)
+		random.seed(modelInfo['trainingSeed']) # Doesn't actually do anything
+		for i, epoch in enumerate(generateModel_epoch(num_epochs = modelInfo['num_epochs'], 
 													  trials = trials_training_singles, 
-													  numTrials = num_trials,
-													  num_batches = num_batches, 
-													  num_timeSteps = num_timeSteps, 
-													  size_layer_x = size_layer_message, 
-													  size_layer_y = size_layer_phonology, 
+													  num_trials = modelInfo['num_trials'],
+													  num_batches = modelInfo['num_batches'], 
+													  num_timeSteps = modelInfo['num_timeSteps'],
 													  verbose = verbose)):
 			for step, (X, Y) in enumerate(epoch):
 				training_loss = 0
-				training_state = np.zeros((num_batches, size_layer_hidden))
-				tr_losses, training_loss_, training_state, _ = sess.run([nodes['losses'], nodes['total_loss'], nodes['final_state'], nodes['train_step']], feed_dict={nodes['x']:X, nodes['y']:Y, nodes['init_state']:training_state})
+				training_state = np.zeros((modelInfo['num_batches'], modelInfo['size_layer_hidden']))
+				tr_losses, training_loss_, training_state, _ = sess.run([nodes['losses'], nodes['total_loss'], nodes['final_state'], nodes['train_step']], feed_dict={nodes['x']:X, nodes['y']:Y, nodes['init_state']:training_state, nodes['max_length']:modelInfo['num_timeSteps']})
 				training_loss += training_loss_
 			training_losses.append(training_loss/100)
 			training_loss = 0
 			if verbose:
-				print("\t\tEpoch: {} -- Loss: {}".format(i + 1, training_losses[-1]))
-		if saveVariablesLocation != None:
-			save_path = saver.save(sess, saveVariablesLocation)
-			if verbose:
-				print("\tModel saved in path: %s" % save_path)
+				print("\t\tEpoch: {} -- Loss: {}".format(i, training_losses[-1]))
+			if saveVariablesLocation != None:
+				if i == 0:
+					save_path = saver.save(sess, (saveVariablesLocation + 'ModelEpoch_'), global_step = i)
+					if verbose:
+						print("\t\tModel saved in path: %s" % save_path)
+				elif i in saved_epochs:
+					save_path = saver.save(sess, (saveVariablesLocation + 'ModelEpoch_'), global_step = i)
+					if verbose:
+						print("\t\tModel saved in path: %s" % save_path)
+				elif i == modelInfo['num_epochs'] - 1:
+					save_path = saver.save(sess, (saveVariablesLocation + 'ModelEpoch_'), global_step = i)
+					if verbose:
+						print("\t\tModel saved in path: %s" % save_path)
 	if saveLossesLocation != None:
-		saveLosses(modelName, training_losses, saveLossesLocation)
+		saveLosses(modelInfo['modelName'], training_losses, saveLossesLocation)
 	return training_losses
 
 if __name__ == '__main__':
 	verbose = True
-	save = True
+	save = False
 	langInfo = {'seed' : 896575376869}
 	pathName = os.getcwd() + '/Languages/Lang_' + str(langInfo['seed'])
 	langDirTrials = pathName + '/Trials.csv'
@@ -180,89 +198,74 @@ if __name__ == '__main__':
 	if not os.path.isfile(langDirTrials):
 		if not os.path.exists(pathName):
 			os.makedirs(pathName)
-		langInfo.update({'numTargets' : 40, # Number of messages that CAN have multiple words associated with them
+		langInfo.update({'numTargets' : 10, # Number of messages that CAN have multiple words associated with them
 						 'numPhon' : 18, # Number of phonemes in the language
 						 'lenPhon_Total' : [3], # Possible word lengths
-						 'numAmbigTargets' : 0, # Number of targets that are 'ambiguous' -- the number of messages that DO have multiple words associated with them
-						 'numInterfering' : 0, # Number of target messages that have interfering words associated with them
+						 'numAmbigTargets' : 10, # Number of targets that are 'ambiguous' -- the number of messages that DO have multiple words associated with them
+						 'numInterfering' : 10, # Number of target messages that have interfering words associated with them
 						 'lenPhon_Interfering' : 2, # Length of the phonological interference})
 						 'testReserve' : 0.10})
 		random.seed(langInfo['seed'])
 		# Start by generating the stimuli used for the model
 		if verbose:
 			print("Random seed: {}".format(langInfo['seed']))
-		words, messages_target = generateTargetMessages(numTargets = langInfo['numTargets'], 
-														numPhon = langInfo['numPhon'],
-										   				lenPhon_Total = langInfo['lenPhon_Total'],
-								   		   				numAmbigTargets = langInfo['numAmbigTargets'],
-								   		   				verbose = verbose)
-		words, messages_primes = generatePrimes(messages_target = messages_target,
-		 								 		numInterfering = langInfo['numInterfering'],
-		 								 		lenPhon_Total = langInfo['lenPhon_Total'],
-		 								 		numPhon = langInfo['numPhon'],
-		 								 		lenPhon_Interfering = langInfo['lenPhon_Interfering'],
-		 								 		words = words,
-		 								 		verbose = verbose)
-		trials_training_singles, trials_training_pairs, trials_testing = generateTrials(messages_target = messages_target,
-						 								 								messages_primes = messages_primes,
-						 								 								lenPhon_Interfering = langInfo['lenPhon_Interfering'],
-						 								 								testReserve = langInfo['testReserve'],
-						 								 								verbose = verbose)
+		words, messages_target = generateLanguage.generateTargetMessages(numTargets = langInfo['numTargets'], 
+																		numPhon = langInfo['numPhon'],
+														   				lenPhon_Total = langInfo['lenPhon_Total'],
+												   		   				numAmbigTargets = langInfo['numAmbigTargets'],
+												   		   				verbose = verbose)
+		print(messages_target)
+		words, messages_primes = generateLanguage.generatePrimes(messages_target = messages_target,
+						 								 		numInterfering = langInfo['numInterfering'],
+						 								 		lenPhon_Total = langInfo['lenPhon_Total'],
+						 								 		numPhon = langInfo['numPhon'],
+						 								 		lenPhon_Interfering = langInfo['lenPhon_Interfering'],
+						 								 		words = words,
+						 								 		verbose = verbose)
+		print(messages_primes)
+		trials_training_singles = generateLanguage.generateTrials(messages_target = messages_target,
+										 						 messages_primes = messages_primes,
+										 						 lenPhon_Interfering = langInfo['lenPhon_Interfering'],
+										 						 testReserve = langInfo['testReserve'],
+										 						 verbose = verbose)
 		if save:
-			saveLanguage(singles = trials_training_singles, pairs = trials_training_pairs, testingPairs = trials_testing, langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo)
+			generateLanguage.saveLanguage(singles = trials_training_singles, langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo)
 	else:
-		trials_training_singles, trials_training_pairs, trials_testing, langInfo = regenerateFromFile(langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo, verbose = verbose)
-	# Model parameters
-	modelSeed = 9021093912
-	trainingSeed = 927986397102
-	learning_rate = 0.005
-	num_trials = 40000 # Number of trials per epoch
-	num_epochs = 10 # Number of groups of trials
-	num_timeSteps = 10 # Number of time steps over which time is calculated
-	num_batches = 5 # Number of batches into which we divide our data
-	# Model structure
-	size_layer_message = len(trials_training_singles)
-	size_layer_phonology = langInfo['numPhon']
-	size_layer_hidden = 50
+		trials_training_singles, langInfo = generateLanguage.regenerateFromFile(langDirTrials = langDirTrials, langDirInfo = langDirInfo, langInfo = langInfo, verbose = verbose)	# Model parameters
+	modelInfo = {'modelSeed':9021093912,
+				 'trainingSeed':129308,
+				 'seed':langInfo['seed'], # Seed of the language on which the model is trained
+				 'learning_rate':0.005, # Low learning rate makes advancements slow but more stable
+				 'num_trials':10, # Number of trials per epoch
+				 'num_epochs':1, # Number of samples of trials
+				 'num_timeSteps':3, # Number of time steps over which time is calculated
+				 'num_batches':1, # Number of batches into which we divide the data
+				 'size_layer_message':len(trials_training_singles), # Size of the x layer -- input into the model determined by number of 'messages' in language
+				 'size_layer_phonology':langInfo['numPhon'], # Size of y layer -- number of phonological units in language
+				 'size_layer_hidden':50} # Size of hidden layer -- should really be a hypoerparameter
 	# Generate the nodes and edges
 	random.seed(langInfo['seed'])
-	graph, nodes = generateModel(learning_rate = learning_rate,
-						  		 num_trials = num_trials, 
-						  		 num_epochs = num_epochs, 
-						  		 num_timeSteps = num_timeSteps, 
-						 		 num_batches = num_batches, 
-						 		 size_layer_message = size_layer_message, 
-						 		 size_layer_phonology = size_layer_phonology, 
-						  		 size_layer_hidden = size_layer_hidden, 
-						  		 modelSeed = modelSeed,
-				  		  		 verbose = verbose)
+	graph, nodes, modelInfo = generateModel(modelInfo = modelInfo,
+				  		  		 			verbose = verbose)
 	# Saving data
 	if save:
-		modelName = '238789562'
-		saveGraphLocation = os.getcwd() + "/Models/Model" + str(modelName)
-		saveVariablesLocation = os.getcwd() + "/Models/Model" + str(modelName) + "/"
-		saveLossesLocation = os.getcwd() + "/Models/Model" + str(modelName) + "/ModelLosses.csv"
+		modelInfo['modelName'] = '238789562'
+		saveGraphLocation = os.getcwd() + "/Models/Model" + str(modelInfo['modelName'])
+		saveVariablesLocation = os.getcwd() + "/Models/Model" + str(modelInfo['modelName']) + "/"
+		saveLossesLocation = os.getcwd() + "/Models/Model" + str(modelInfo['modelName']) + "/ModelLosses.csv"
 	else:
 		modelName = 'TEST'
 		saveGraphLocation = None
 		saveVariablesLocation = None
 		saveLossesLocation = None
 	# RUN MODEL #
-	training_losses = trainNetwork(trainingSeed = trainingSeed,
+	training_losses = trainNetwork(modelInfo = modelInfo,
 									graph = graph,
 									nodes = nodes,
 									trials_training_singles = trials_training_singles,
-				  					num_trials = num_trials,
-				  					num_batches = num_batches,
-				  					num_timeSteps = num_timeSteps,
-				  					num_epochs = num_epochs,
-				  					size_layer_message = size_layer_message,
-				  					size_layer_phonology = size_layer_phonology,
-				  					size_layer_hidden = size_layer_hidden,
 				  					saveGraphLocation = saveGraphLocation,
 				  					saveVariablesLocation = saveVariablesLocation,
 				  					saveLossesLocation = saveLossesLocation,
-				  					modelName = modelName,
 				  					verbose = verbose)
 	plt.plot(training_losses)
 	plt.show()
