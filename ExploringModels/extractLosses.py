@@ -22,7 +22,7 @@ if __name__ == '__main__':
 	modelTypes = getChildren(direcs = os.getcwd() + "/ModelTypes/*/",
 						 	 return_files = False)
 	for modelType in modelTypes:
-		filename = os.getcwd() + '/LossAnalysis/' + modelType.split('/')[-2] + '_AllModels' + '.csv'
+		filename = os.getcwd() + '/LossAnalysis/' + modelType.split('/')[-2] + '_AllModels_LossAnalysis' + '.csv'
 		if verbose:
 			print("Starting: {}".format(filename.split('/')[-1]))
 		# Gets all model info
