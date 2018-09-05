@@ -3,6 +3,7 @@ import os
 import pandas
 import sys
 import importlib
+from scipy import spatial
 import tensorflow as tf
 import numpy as np
 from helperfunctions_WCM import *
@@ -22,11 +23,13 @@ class testingTrial():
 		self.word1_message = int(trial1['message'])
 		self.word1_label = trial1['label']
 		self.word1_phonemes = [int(_) for _ in trial1['phonemes'].split('_')]
+		self.word1_ambiguous = trial1['condition']
 		# Get information about the second message/word pair
 		self.word2_type = trial2['condition']
 		self.word2_message = int(trial2['message'])
 		self.word2_label = trial2['label']
 		self.word2_phonemes = [int(_) for _ in trial2['phonemes'].split('_')]
+		self.word2_ambiguous = trial2['condition']
 		# Get input
 		zeros1 = np.array([0]*(len(self.word1_phonemes)), dtype = np.float32)
 		zeros1[0] = int(self.word1_message)
@@ -53,6 +56,26 @@ class testingTrial():
 				self.matchingPhonology.append(1)
 			else:
 				self.matchingPhonology.append(0)
+		
+	def getInfo(self):
+		outdict = {'word1_type':self.word1_type,
+				   'word1_message':self.word1_message,
+				   'word1_label':self.word1_label,
+				   'word1_phonemes':self.word1_phonemes,
+				   'word1_ambiguous':self.word1_ambiguous,
+				   'word2_type':self.word2_type,
+				   'word2_message':self.word2_message,
+				   'word2_label':self.word2_label,
+				   'word2_phonemes':self.word2_phonemes,
+				   'word2_ambiguous':self.word2_ambiguous,
+				   'matching_message':self.matchingMessage}
+		phon_keys = []
+		for i, mp in enumerate(self.matchingPhonology):
+			key = 'matching_phonology' + str(i)
+			outdict.update({key:mp})
+			phon_keys.append(key)
+		return outdict, phon_keys
+
 
 	def get_input(self):
 		zeros1 = np.array([0]*(len(self.word1_phonemes)), dtype = np.int32)
@@ -76,21 +99,75 @@ def generateTest(trials):
 		x = np.expand_dims(x, axis=0)
 		y_hat = trial.get_output()
 		y_hat = np.expand_dims(y_hat, axis=0)
-		yield(x, y_hat, num_timeSteps)
+		yield(x, y_hat, trial, num_timeSteps)
+
+"""
+Actually saves the predictions
+"""
+def savePredictions(modelInfo, trial, X, Y_hat, predictions, filename):
+	response = modelInfo
+	trialDict, phonKeys = trial.getInfo()
+	response.update(trialDict)
+	response['X_total'] = X
+	response['Y_hat_total'] = Y_hat
+	response['predictions_total'] = predictions
+	n_values = int(modelInfo['size_layer_phonology'])
+	header = ['modelType',
+			  'epoch',
+   			  'modelName',
+   			  'modelSeed',
+   			  'trainingSeed',
+   			  'seed',
+   			  'learning_rate',
+   			  'num_trials',
+   			  'num_epochs',
+   			  'num_timeSteps',
+   			  'num_batches',
+   			  'size_layer_message',
+   			  'size_layer_hidden',
+   			  'size_layer_phonology',
+   			  'word1_type',
+   			  'word1_message',
+   			  'word1_label',
+   			  'word1_ambiguous',
+   			  'word2_type',
+   			  'word2_message',
+   			  'word2_label',
+   			  'word2_ambiguous',
+   			  'matching_message']
+	header += phonKeys
+	header += ['time',
+   			   'cosine_sim',
+   			   'target_value']
+	for timeStep, (y_hat, prediction) in enumerate(zip(Y_hat.flatten(), predictions[0])):
+		y_hat_onehot = (np.eye(n_values)[y_hat])
+		"""print("Expected: \n{}".format(y_hat_onehot))
+		print("Predicted: \n{}\n".format(prediction))"""
+		response['cosine_sim'] = (1 - spatial.distance.cosine(y_hat_onehot, prediction))
+		response['target_value'] = prediction[y_hat - 1]
+		response['time'] = timeStep
+		recordResponse(fileName = filename,
+				  	   response = response,
+				  	   header = header)
 
 """
 Run model and see what we get
 """
 def getPredictions(modelInfo, graph, nodes, testingTrials, file,
+				   limitModels = True,
 				   verbose = False):
 	# gets predictions from what model produces
 	graphLoc = modelInfo['modelType'] + "Models/Model" + str(modelInfo['modelName']) + "/"
 	if verbose:
 		print("Predicting for model {}".format(graphLoc))
-	for graph in glob.glob(graphLoc + "*.meta"):
+	graphs = glob.glob(graphLoc + "*.meta")
+	if limitModels:
+		graphs = [graphs[-1]]
+	for graph in graphs:
 		if verbose:
-			print("\tPredicting for graph saved: {}".format(graph))
+			print("\tPredicting for graph saved: {}".format(graph.split('/')[-1]))
 		data=graph.split('.')[0]
+		modelInfo['epoch'] = graph.split('-')[-1].split('.')[0]
 		tf.reset_default_graph()
 		x = tf.placeholder(tf.int32,[None, None], name = 'Message')
 		y = tf.placeholder(tf.int32, [None, None], name = 'Phonology')
@@ -99,20 +176,22 @@ def getPredictions(modelInfo, graph, nodes, testingTrials, file,
 			restoredGraph.restore(sess, data)
 			for i, test in enumerate(generateTest(trials = testingTrials)):
 				training_state = np.zeros((1, modelInfo['size_layer_hidden']))
-				(X, Y, num_timeSteps) = test
-				if verbose:
-					print("Input: \n\t{}".format(X))
-					print("Output: \n\t{}".format(Y))
+				(X, Y, trial, num_timeSteps) = test
 				predictions, training_state = sess.run([modelInfo['predictions'], modelInfo['hidden_state_curr']], feed_dict={modelInfo['input']:X, modelInfo['hidden_state_init']:training_state, modelInfo['max_length_name']:num_timeSteps})
-				if verbose:
-					print("Predictions: \n\t{}".format(predictions))
+				savePredictions(modelInfo = modelInfo, 
+								trial = trial,
+								X = X,
+								Y_hat = Y,
+								predictions = predictions,
+								filename = file)
 
 """
 Regenerates model from 
 """
 def buildModel(modelInfo, testingTrials, file,
+			   limitModels = True,
 			   verbose = False):
-	# reconstructs model from tensorflow and returns model
+	# reconstructs model from tensorflow
 	tf.reset_default_graph()
 	try:
 		graph, nodes, modelInfo = generateModels.generateModel(modelInfo = modelInfo,
@@ -120,11 +199,13 @@ def buildModel(modelInfo, testingTrials, file,
 	except:
 		print("Error recreating model {} of model type {}".format(modelInfo['modelName'], modelType.split('/')[-2]))
 		return
+	# Run model recording predictions
 	getPredictions(modelInfo = modelInfo,
 				   graph = graph,
 				   nodes = nodes,
 				   testingTrials = testingTrials,
 				   file = file,
+				   limitModels = limitModels,
 				   verbose = verbose)
 
 """
@@ -150,13 +231,18 @@ def getLanguage(modelInfo, modelTypeDir,
 	return testingTrials
 
 if __name__ == '__main__':
+	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 	verbose = True
+	limitModels = True # TURN THIS ON TO ENSURE WE ONLY RETURN THE PREDICTIONS FROM THE LAST EPOCH OF TRAINING
 	if verbose:
 		np.set_printoptions(precision = 2, suppress = True)
 	modelTypes = getChildren(direcs = os.getcwd() + "/ModelTypes/*/",
 						 	 return_files = False)
+	# We will analyze each type of model separately
 	for modelType in modelTypes:
 		file = os.getcwd() + '/PredAnalysis/' + modelType.split('/')[-2] + "_AllModels.csv"
+		if verbose:
+			print("Starting to add to {}".format(file))
 		sys.path.append(modelType)
 		# Imports (or reimports) generateModels and generateLanguage for each kind of model
 		if 'generateModels' in sys.modules:
@@ -164,11 +250,17 @@ if __name__ == '__main__':
 		else:
 			import generateModels
 		# Get log of models that contains model information which will be used to recreate model
-		modelLog = pandas.read_csv(modelType + 'Models/Model_Log.csv')
+		try:
+			modelLog = pandas.read_csv(modelType + 'Models/Model_Log.csv')
+		except:
+			print("Error retrieving model log of type: {}".format(modelType))
+			print("\tMoving on to new model type")
+			continue
 		# Get language for each model type
 		# Iterate through each model, create model, and examine model predictions
 		for model in modelLog['modelName'].tolist():
 			modelRow = modelLog.loc[modelLog['modelName'] == model]
+			# Generating model information
 			modelInfo = {'modelType':modelType,
 						 'modelName':model, 
 						 'modelSeed':int(modelRow['modelSeed']), 
@@ -182,10 +274,13 @@ if __name__ == '__main__':
 			 			 'size_layer_message':int(modelRow['size_layer_message']), 
 			 			 'size_layer_hidden':int(modelRow['size_layer_hidden']), 
 			 			 'size_layer_phonology':int(modelRow['size_layer_phonology'])}
+			# Generating language
 			testingTrials = getLanguage(modelInfo = modelInfo, 
 										modelTypeDir = modelType,
 										verbose = verbose)
+			# Building and analyzing model
 			buildModel(modelInfo = modelInfo,
 					   testingTrials = testingTrials,
 					   file = file,
+					   limitModels = limitModels,
 					   verbose = verbose)

@@ -30,7 +30,7 @@ def recordResponse(fileName, response, header,
 		with open(fileName, writeCode) as f:
 			record = ""
 			for value in header:
-				record += str(response[value]) + separator
+				record += str(response.get(value)) + separator
 			record = record[:-len(separator)]
 			record += ender
 			f.write(record)
@@ -45,7 +45,7 @@ def recordResponse(fileName, response, header,
 			f.write(record)
 			record = ""
 			for value in header:
-				record += str(response[value]) + separator
+				record += str(response.get(value)) + separator
 			record = record[:-len(separator)]
 			record += ender
 			f.write(record)

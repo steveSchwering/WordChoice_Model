@@ -1,7 +1,7 @@
 setwd("~/Documents/Psychology/Labs/LCNL/Research/Current/WordChoice_Model/ExploringModels/LossAnalysis")
 # Reading in data frames
-d_ambig_loss = read.csv("Singleton_Ambiguous_AllModels.csv")
-d_unambig_loss = read.csv("Singleton_Unambiguous_AllModels.csv")
+d_ambig_loss = read.csv("Singleton_Ambiguous_AllModels_LossAnalysis.csv")
+d_unambig_loss = read.csv("Singleton_Unambiguous_AllModels_LossAnalysis.csv")
 
 # Cleaning data frames
 d_ambig_loss$modelName = as.factor(d_ambig_loss$modelName)
