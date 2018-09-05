@@ -23,13 +23,11 @@ class testingTrial():
 		self.word1_message = int(trial1['message'])
 		self.word1_label = trial1['label']
 		self.word1_phonemes = [int(_) for _ in trial1['phonemes'].split('_')]
-		self.word1_ambiguous = trial1['condition']
 		# Get information about the second message/word pair
 		self.word2_type = trial2['condition']
 		self.word2_message = int(trial2['message'])
 		self.word2_label = trial2['label']
 		self.word2_phonemes = [int(_) for _ in trial2['phonemes'].split('_')]
-		self.word2_ambiguous = trial2['condition']
 		# Get input
 		zeros1 = np.array([0]*(len(self.word1_phonemes)), dtype = np.float32)
 		zeros1[0] = int(self.word1_message)
@@ -115,24 +113,24 @@ def savePredictions(modelInfo, trial, X, Y_hat, predictions, filename):
 	header = ['modelType',
 			  'epoch',
    			  'modelName',
-   			  'modelSeed',
-   			  'trainingSeed',
-   			  'seed',
-   			  'learning_rate',
-   			  'num_trials',
-   			  'num_epochs',
+   			  #'modelSeed',
+   			  #'trainingSeed',
+   			  #'seed',
+   			  #'learning_rate',
+   			  #'num_trials',
+   			  #'num_epochs',
    			  'num_timeSteps',
    			  'num_batches',
-   			  'size_layer_message',
-   			  'size_layer_hidden',
-   			  'size_layer_phonology',
+   			  #'size_layer_message',
+   			  #'size_layer_hidden',
+   			  #'size_layer_phonology',
    			  'word1_type',
    			  'word1_message',
-   			  'word1_label',
+   			  #'word1_label',
    			  'word1_ambiguous',
    			  'word2_type',
    			  'word2_message',
-   			  'word2_label',
+   			  #'word2_label',
    			  'word2_ambiguous',
    			  'matching_message']
 	header += phonKeys
@@ -144,7 +142,7 @@ def savePredictions(modelInfo, trial, X, Y_hat, predictions, filename):
 		"""print("Expected: \n{}".format(y_hat_onehot))
 		print("Predicted: \n{}\n".format(prediction))"""
 		response['cosine_sim'] = (1 - spatial.distance.cosine(y_hat_onehot, prediction))
-		response['target_value'] = prediction[y_hat - 1]
+		response['target_value'] = prediction[y_hat]
 		response['time'] = timeStep
 		recordResponse(fileName = filename,
 				  	   response = response,
@@ -240,7 +238,7 @@ if __name__ == '__main__':
 						 	 return_files = False)
 	# We will analyze each type of model separately
 	for modelType in modelTypes:
-		file = os.getcwd() + '/PredAnalysis/' + modelType.split('/')[-2] + "_AllModels.csv"
+		file = os.getcwd() + '/PredAnalysis/' + modelType.split('/')[-2] + "_Predictions_AllModels.csv"
 		if verbose:
 			print("Starting to add to {}".format(file))
 		sys.path.append(modelType)
