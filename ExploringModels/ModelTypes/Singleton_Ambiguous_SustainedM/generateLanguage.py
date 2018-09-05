@@ -21,7 +21,7 @@ class Trial():
 	Outputs one-hot vectors of model input
 	"""
 	def get_message_np(self):
-		zeros = np.array(self.message*(len(self.phonemes)), dtype = np.float32)
+		zeros = np.array([self.message]*(len(self.phonemes)), dtype = np.float32)
 		return zeros.astype(np.int32)
 		
 	"""

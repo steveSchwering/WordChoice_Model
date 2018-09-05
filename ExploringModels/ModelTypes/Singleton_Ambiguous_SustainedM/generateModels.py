@@ -1,6 +1,7 @@
 import random
 import os
 import glob
+import sys
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -28,7 +29,10 @@ def generateModel_data(trials, num_trials,
 			input_data = np.vstack((input_data, trial.get_message_np()))
 			output_data = np.vstack((output_data, trial.get_phonology_np()))
 	input_data = input_data.flatten()
+	print(input_data)
 	output_data = output_data.flatten()
+	print(output_data)
+	sys.exit()
 	return input_data, output_data
 
 """
