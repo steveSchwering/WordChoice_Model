@@ -1,0 +1,16 @@
+modelName,modelSeed,trainingSeed,seed,learning_rate,num_trials,num_epochs,num_timeSteps,num_batches,size_layer_message,size_layer_hidden,size_layer_phonology,input,hidden_state_init,hidden_state_curr,predictions,max_length_name
+190421296,9021093912,927986397102,896575376869,0.005,20000,100,6,3,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+494121373,9021093912,927986397102,896575376869,0.005,20000,100,6,5,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+749391364,9021093912,927986397102,896575376869,0.005,20000,100,6,10,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+533332154,9021093912,927986397102,896575376869,0.005,20000,100,7,3,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+880531695,9021093912,927986397102,896575376869,0.005,20000,100,7,5,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+288271949,9021093912,927986397102,896575376869,0.005,20000,100,7,10,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+383808281,9021093912,927986397102,896575376869,0.005,20000,100,8,3,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+843508036,9021093912,927986397102,896575376869,0.005,20000,100,8,5,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+768489071,9021093912,927986397102,896575376869,0.005,20000,100,8,10,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+413487041,9021093912,927986397102,896575376869,0.005,20000,100,9,3,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+253966923,9021093912,927986397102,896575376869,0.005,20000,100,9,5,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+470505021,9021093912,927986397102,896575376869,0.005,20000,100,9,10,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+741329916,9021093912,927986397102,896575376869,0.005,20000,100,10,3,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+206265802,9021093912,927986397102,896575376869,0.005,20000,100,10,5,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
+441087100,9021093912,927986397102,896575376869,0.005,20000,100,10,10,40,50,18,Message/Message:0,RNN_Hidden/RNN_Initial:0,RNN_Hidden/rnn/while/Exit_3:0,Outputs/Predictions:0,RNN_Hidden/Placeholder:0
