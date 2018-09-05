@@ -87,8 +87,8 @@ if __name__ == '__main__':
 	l_learning_rate = [0.005]
 	l_num_trials = [20000] # Number of trials per epoch
 	l_num_epochs = [100] # Number of groups of trials
-	l_num_timeSteps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] # Number of time steps over which time is calculated
-	l_num_batches = [1, 3, 5, 10]  # Number of batches into which we divide our data
+	l_num_timeSteps = [6, 7, 8, 9, 10] # Number of time steps over which time is calculated
+	l_num_batches = [3, 5, 10]  # Number of batches into which we divide our data
 	l_size_layer_hidden = [50] # Size of hidden layer
 	size_layer_message = len(trials_training_singles)
 	size_layer_phonology = langInfo['numPhon']
