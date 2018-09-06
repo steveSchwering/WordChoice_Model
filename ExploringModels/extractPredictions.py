@@ -60,12 +60,10 @@ class testingTrial():
 				   'word1_message':self.word1_message,
 				   'word1_label':self.word1_label,
 				   'word1_phonemes':self.word1_phonemes,
-				   'word1_ambiguous':self.word1_ambiguous,
 				   'word2_type':self.word2_type,
 				   'word2_message':self.word2_message,
 				   'word2_label':self.word2_label,
 				   'word2_phonemes':self.word2_phonemes,
-				   'word2_ambiguous':self.word2_ambiguous,
 				   'matching_message':self.matchingMessage}
 		phon_keys = []
 		for i, mp in enumerate(self.matchingPhonology):
@@ -127,11 +125,9 @@ def savePredictions(modelInfo, trial, X, Y_hat, predictions, filename):
    			  'word1_type',
    			  'word1_message',
    			  #'word1_label',
-   			  'word1_ambiguous',
    			  'word2_type',
    			  'word2_message',
    			  #'word2_label',
-   			  'word2_ambiguous',
    			  'matching_message']
 	header += phonKeys
 	header += ['time',
@@ -234,12 +230,23 @@ if __name__ == '__main__':
 	limitModels = True # TURN THIS ON TO ENSURE WE ONLY RETURN THE PREDICTIONS FROM THE LAST EPOCH OF TRAINING
 	if verbose:
 		np.set_printoptions(precision = 2, suppress = True)
-	modelTypes = getChildren(direcs = os.getcwd() + "/ModelTypes/*/",
+	# Read in which models we want to read
+	if len(sys.argv) > 1:
+		if verbose:
+			print("Analyzing subset of models")
+		modelTypes = str(sys.argv).split(',')[1:]
+		modelTypes = [model.replace("'", "").replace(']',"").replace("[","").strip() for model in modelTypes] # lol, what am I doing
+		modelTypes = [(os.getcwd() + "/ModelTypes/" + modelType + "/") for modelType in modelTypes]
+	else:
+		if verbose:
+			print("Analyzing all models")
+		modelTypes = getChildren(direcs = os.getcwd() + "/ModelTypes/*/",
 						 	 return_files = False)
 	# We will analyze each type of model separately
 	for modelType in modelTypes:
 		file = os.getcwd() + '/PredAnalysis/' + modelType.split('/')[-2] + "_Predictions_AllModels.csv"
 		if verbose:
+			print("Seeking models in {}".format(modelType))
 			print("Starting to add to {}".format(file))
 		sys.path.append(modelType)
 		# Imports (or reimports) generateModels and generateLanguage for each kind of model

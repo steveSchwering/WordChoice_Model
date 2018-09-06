@@ -1,0 +1,4 @@
+These models examine how performance looks when the model is just trained on single words with both ambiguous and unambiguous phonology
+-- This means that each 'message' may have up to 2 ‘words’ associated with it.
+-- In this model, the only change is the input to the model via the 'message'. Now the 'message' is sustained over time rather than turning on at the input and then off at the offset.
+-- This change can be found in the generateLanguage.py file in the Trial.get_message_np() function. Note there is still a single input (index 0 of the 'message') that is a 'blank'. The model never sees this input in an input/output pattern.

@@ -2,20 +2,25 @@ setwd("~/Documents/Psychology/Labs/LCNL/Research/Current/WordChoice_Model/Explor
 # Reading in data frames
 d_ambig_loss = read.csv("Singleton_Ambiguous_AllModels_LossAnalysis.csv")
 d_unambig_loss = read.csv("Singleton_Unambiguous_AllModels_LossAnalysis.csv")
+d_ambig_sm_loss = read.csv("Singleton_Ambiguous_SustainedM_AllModels_LossAnalysis.csv")
 
 # Cleaning data frames
 d_ambig_loss$modelName = as.factor(d_ambig_loss$modelName)
-d_unambig_loss$modelName = as.factor(d_unambig_loss$modelName)
 d_ambig_loss$num_timeSteps = as.factor(d_ambig_loss$num_timeSteps)
-d_unambig_loss$num_timeSteps = as.factor(d_unambig_loss$num_timeSteps)
 d_ambig_loss$num_batches = as.factor(d_ambig_loss$num_batches)
 levels(d_ambig_loss$num_batches) = c("Batch size 1", "Batch size 3", "Batch size 5", "Batch size 10")
+d_unambig_loss$num_timeSteps = as.factor(d_unambig_loss$num_timeSteps)
+d_unambig_loss$modelName = as.factor(d_unambig_loss$modelName)
 d_unambig_loss$num_batches = as.factor(d_unambig_loss$num_batches)
 levels(d_unambig_loss$num_batches) = c("Batch size 1", "Batch size 3", "Batch size 5", "Batch size 10")
+d_ambig_sm_loss$modelName = as.factor(d_ambig_sm_loss$modelName)
+d_ambig_sm_loss$num_timeSteps = as.factor(d_ambig_sm_loss$num_timeSteps)
+d_ambig_sm_loss$num_batches = as.factor(d_ambig_sm_loss$num_batches)
+levels(d_ambig_sm_loss$num_batches) = c("Batch size 1", "Batch size 3", "Batch size 5", "Batch size 10")
 
 # Creating plots
 library("cowplot")
-### AMBIGUOUS ###
+#### AMBIGUOUS ####
 unique(d_ambig_loss$num_timeSteps)
 unique(d_ambig_loss$num_batches)
 # Looking at time steps of size 1 for ambiguous model
@@ -109,7 +114,7 @@ plot_ambig = ggplot(d_ambig_loss, aes(x = epoch, y = loss, color = num_timeSteps
 plot_ambig
 
 
-### UNAMBIGUOUS ###
+#### UNAMBIGUOUS ####
 # Looking at all time steps for unambiguous model
 plot_unambig = ggplot(d_unambig_loss, aes(x = epoch, y = loss, color = num_timeSteps)) +
   geom_point() +
@@ -120,6 +125,16 @@ plot_unambig = ggplot(d_unambig_loss, aes(x = epoch, y = loss, color = num_timeS
         strip.background = element_rect(colour="black", fill="white"))
 plot_unambig
 
-### SAVING ###
+#### AMBIGUOUS SUSTAINED ####
+plot_ambig_sus = ggplot(d_ambig_sm_loss, aes(x = epoch, y = loss, color = num_timeSteps)) +
+  geom_point() +
+  facet_wrap(~num_batches) +
+  coord_cartesian(ylim = c(0.0, 0.033)) + labs(title = "Model losses", colour = "Time steps") + ylab("Loss") + xlab("Epoch") +
+  theme(strip.text.x = element_text(size=14),
+        strip.text.y = element_text(size=20, face="bold"),
+        strip.background = element_rect(colour="black", fill="white"))
+plot_ambig_sus
+
+#### SAVING ####
 ggsave(filename="LossAmbig_Plot.pdf", plot = plot_ambig)
 ggsave(filename="LossUnambig_Plot.pdf", plot = plot_unambig)
